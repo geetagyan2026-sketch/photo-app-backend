@@ -1,200 +1,210 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 
-void main() {
-  runApp(const TeleportCamApp());
-}
+void main() => runApp(const TeleportCamApp());
 
 class TeleportCamApp extends StatelessWidget {
   const TeleportCamApp({Key? key}) : super(key: key);
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        primaryColor: Colors.blue,
-        scaffoldBackgroundColor: const Color(0xFF121212),
-      ),
-      home: const MainDashboard(),
+      home: const CameraStudioScreen(),
+      theme: ThemeData.dark().copyWith(scaffoldBackgroundColor: const Color(0xFF121212)),
     );
   }
 }
 
-class MainDashboard extends StatefulWidget {
-  const MainDashboard({Key? key}) : super(key: key);
-
+class CameraStudioScreen extends StatefulWidget {
+  const CameraStudioScreen({Key? key}) : super(key: key);
   @override
-  _MainDashboardState createState() => _MainDashboardState();
+  State<CameraStudioScreen> createState() => _CameraStudioScreenState();
 }
 
-class _MainDashboardState extends State<MainDashboard> {
-  String? _currentStatusText = "अपनी फोटो जोड़ने के लिए नीचे कैमरा बटन दबाएं";
-  bool _isPhotoSelected = false;
+class _CameraStudioScreenState extends State<CameraStudioScreen> {
+  File? _userImage;
+  dynamic _finalResultBytes; // एआई सर्वर से आने वाली असली इमेज का डेटा
+  bool _isLoading = false;
+  
+  final TextEditingController _searchController = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
 
-  final List<Map<String, String>> locations = [
-    {"name": "Eiffel Tower, Paris", "image": "https://unsplash.com"},
-    {"name": "Burj Khalifa, Dubai", "image": "https://unsplash.com"},
-    {"name": "Taj Mahal, India", "image": "https://unsplash.com"},
-    {"name": "Statue of Liberty, USA", "image": "https://unsplash.com"}
-  ];
+  // आपका Python (main.py) सर्वर जहाँ होस्टेड है उसका एड्रेस (Local या Cloud URL)
+  final String _serverUrl = "http://10.0.0"; // अपने सर्वर IP से बदलें
 
-  int selectedIndex = 0;
+  // कैमरा या गैलरी से यूजर की ओरिजिनल फोटो सेलेक्ट करना
+  Future<void> _pickUserPhoto(ImageSource source) async {
+    final XFile? file = await _picker.pickImage(source: source, imageQuality: 80);
+    if (file != null) {
+      setState(() {
+        _userImage = File(file.path);
+        _finalResultBytes = null; // पुराना प्रिव्यू साफ़ करें
+      });
+    }
+  }
 
-  void _openImageSourcePicker() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1E1E1E),
-      builder: (BuildContext context) {
-        return SafeArea(
-          child: Wrap(
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_library, color: Colors.blue),
-                title: const Text('गैलरी से फोटो चुनें (Gallery)', style: TextStyle(color: Colors.white)),
-                onTap: () {
-                  setState(() {
-                    _isPhotoSelected = true;
-                    _currentStatusText = "गैलरी से आपकी फोटो लोड हो चुकी है!";
-                  });
-                  Navigator.of(context).pop();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.camera_alt, color: Colors.green),
-                title: const Text('लाइव कैमरा से खींचें (Camera)', style: TextStyle(color: Colors.white)),
-                onTap: () {
-                  setState(() {
-                    _isPhotoSelected = true;
-                    _currentStatusText = "लाइव कैमरे से आपकी फोटो क्लिक हो चुकी है!";
-                  });
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  // एआई सर्वर (main.py) को डेटा भेजना जो असली फोटो सर्च करेगा और बैकग्राउंड मिक्स करेगा
+  Future<void> _processAiTeleport() async {
+    String location = _searchController.text.trim();
+    if (location.isEmpty) {
+      _showSnackbar("कृपया सर्च बॉक्स में लोकेशन का नाम लिखें!");
+      return;
+    }
+    if (_userImage == null) {
+      _showSnackbar("कृपया कैमरा या गैलरी से अपनी फोटो जोड़ें!");
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      var request = http.MultipartRequest('POST', Uri.parse(_serverUrl));
+      request.fields['location'] = location;
+      request.files.add(await http.MultipartFile.fromPath('user_photo', _userImage!.path));
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _finalResultBytes = response.bodyBytes; // सर्वर से आई असली ब्लेंडेड फोटो
+        });
+      } else {
+        _showSnackbar("सर्वर एरर! कोड: ${response.statusCode}");
+      }
+    } catch (e) {
+      _showSnackbar("कनेक्शन फेल! अपना Python सर्वर चालू रखें।");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showSnackbar(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("TeleportCam AI v1.0", style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('🌍 TeleportCam AI Pro', style: TextStyle(color: Color(0xFFFFB300), fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF1C1C1E),
         centerTitle: true,
-        backgroundColor: const Color(0xFF1A1A1A),
-        elevation: 0,
       ),
-      body: Stack(
-        children: [
-          Image.network(
-            locations[selectedIndex]["image"]!,
-            fit: BoxFit.cover,
-            height: double.infinity,
-            width: double.infinity,
-          ),
-          Center(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.all(20),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          children: [
+            const Text('लोकेशन सर्च करें और एआई मैजिक से अपनी फोटो ओरिजिनल मिक्स करें!', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const SizedBox(height: 12),
+
+            // मुख्य प्रिव्यू बॉक्स जहाँ फाइनल असली इमेज दिखेगी
+            Container(
+              width: double.infinity,
+              height: 320,
               decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.amber, width: 1.5),
+                color: const Color(0xFF1E1E1E),
+                border: Border.all(color: const Color(0xFFFFB300), width: 3),
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(
-                _currentStatusText!,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 130,
-            left: 0,
-            right: 0,
-            child: SizedBox(
-              height: 85,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: locations.length,
-                itemBuilder: (context, index) {
-                  return GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        selectedIndex = index;
-                      });
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 8),
-                      width: 85,
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: selectedIndex == index ? Colors.amber : Colors.transparent,
-                          width: 3,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        image: DecorationImage(
-                          image: NetworkImage(locations[index]["image"]!),
-                          fit: BoxFit.cover,
-                        ),
+              child: Stack(
+                children: [
+                  if (_finalResultBytes == null && _userImage == null && !_isLoading)
+                    const Center(child: Text("लोकेशन सर्च करें और फोटो लोड करें", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold))),
+                  
+                  // सर्वर प्रोसेसिंग लोडर स्क्रीन
+                  if (_isLoading)
+                    const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFB300))),
+                          SizedBox(height: 10),
+                          Text("AI असली फोटो मिक्स कर रहा है...", style: TextStyle(color: Color(0xFFFFB300), fontWeight: FontWeight.bold)),
+                        ],
                       ),
                     ),
-                  );
-                },
+
+                  // फाइनल 100% ओरिजिनल मिक्स फोटो जो सर्वर से आएगी
+                  if (_finalResultBytes != null && !_isLoading)
+                    Positioned.fill(child: Image.memory(_finalResultBytes, fit: BoxFit.cover)),
+
+                  // शुरुआती यूजर फोटो का छोटा प्रिव्यू थंबनेल (अगर फाइनल नहीं आया है)
+                  if (_userImage != null && _finalResultBytes == null && !_isLoading)
+                    Center(child: Image.file(_userImage!, fit: BoxFit.contain)),
+                ],
               ),
             ),
-          ),
-          Positioned(
-            bottom: 20,
-            left: 20,
-            right: 20,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
-                    minimumSize: const Size(double.infinity, 50),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: _openImageSourcePicker,
-                  icon: const Icon(Icons.add_a_photo, color: Colors.white),
-                  label: const Text("कैमरा / गैलरी खोलें", style: TextStyle(fontSize: 16, color: Colors.white)),
-                ),
-                const SizedBox(height: 12),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber,
-                    minimumSize: const Size(double.infinity, 55),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () {
-                    if (!_isPhotoSelected) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("त्रुटि: पहले कैमरा या गैलरी से फोटो लोड करें!")),
-                      );
-                      return;
-                    }
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("AI ब्लेंडिंग इंजन सक्रिय... फोटो को असली बनाया जा रहा है!"),
-                        backgroundColor: Colors.green,
+            const SizedBox(height: 12),
+
+            // कंट्रोल पैनल विजेट्स
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: const Color(0xFF1C1C1E), borderRadius: BorderRadius.circular(10)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('1. असली लोकेशन सर्च करें (उदा. India gate, Paris):', style: TextStyle(color: Color(0xFFFFB300), fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: 'लोकेशन का नाम लिखें...',
+                            filled: true,
+                            fillColor: const Color(0xFF2A2A2E),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          ),
+                        ),
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.auto_fix_high, color: Colors.black),
-                  label: const Text(
-                    "Make Original Photo",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  const Text('2. अपनी फोटो जोड़ें (कैमरा या गैलरी):', style: TextStyle(color: Color(0xFFFFB300), fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _pickUserPhoto(ImageSource.camera),
+                          icon: const Icon(Icons.camera_alt, size: 16),
+                          label: const Text('कैमरा'),
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2ECC71), foregroundColor: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _pickUserPhoto(ImageSource.gallery),
+                          icon: const Icon(Icons.image, size: 16),
+                          label: const Text('गैलरी'),
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3498DB), foregroundColor: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+                  
+                  // फाइनल एआई मिक्सिंग ऐक्शन बटन
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _processAiTeleport,
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFB300), foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(vertical: 12)),
+                      child: const Text('📸 असली फोटो मिक्स करें', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          )
-        ],
+          ],
+        ),
       ),
     );
   }
-}
+                  
