@@ -1,172 +1,93 @@
-import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  final cameras = await availableCameras();
-  runApp(MaterialApp(
-    debugShowCheckedModeBanner: false,
-    home: TravelCameraApp(camera: cameras.first),
-  ));
-}
+void main() => runApp(MaterialApp(home: WorldCamApp()));
 
-class TravelCameraApp extends StatefulWidget {
-  final CameraDescription camera;
-  const TravelCameraApp({Key? key, required this.camera}) : super(key: key);
-
-  @override
-  _TravelCameraAppState createState() => _TravelCameraAppState();
-}
-
-class _TravelCameraAppState extends State<TravelCameraApp> {
-  late CameraController _controller;
-  late Future<void> _initializeControllerFuture;
-  final ImagePicker _picker = ImagePicker();
-  
-  // गूगल एआई स्टूडियो से मिली आपकी लाइव चाबी
-  final String geminiApiKey = "AQ.Ab8RN6Jil3ISeGHNKkhq-_oegJP_";
-  
-  String bgImageUrl = "https://unsplash.com"; 
-  bool _isProcessing = false;
-  File? _finalResult;
-  final TextEditingController _searchController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = CameraController(widget.camera, ResolutionPreset.high);
-    _initializeControllerFuture = _controller.initialize();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void updateBackground(String location) {
-    if (location.isNotEmpty) {
-      setState(() {
-        bgImageUrl = "https://unsplash.com"; // सैंपल डेस्टिनेशन
-        _finalResult = null;
-      });
-    }
-  }
-
-  // गैलरी से फोटो चुनने का फंक्शन
-  Future<void> pickFromGallery() async {
-    final XFile? pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      processWithGemini(File(pickedFile.path));
-    }
-  }
-
-  // लाइव कैमरे से फोटो खींचने का फंक्शन
-  Future<void> captureLivePhoto() async {
-    try {
-      await _initializeControllerFuture;
-      final image = await _controller.takePicture();
-      processWithGemini(File(image.path));
-    } catch (e) {
-      print(e);
-    }
-  }
-
-  // जेमिनी एआई द्वारा बैकग्राउंड हटाकर ओरिजिनल लुक देने का मुख्य फंक्शन
-  Future<void> processWithGemini(File userImage) async {
-    setState(() => _isProcessing = true);
-    try {
-      final tempDir = await getTemporaryDirectory();
-      // यहाँ जेमिनी एआई आपके चेहरे को लाइव लोकेशन के साथ ओरिजिनल ब्लेंड करेगा
-      setState(() {
-        _finalResult = userImage; // तत्काल टेस्टिंग प्रिव्यू के लिए
-      });
-    } catch (e) {
-      print(e);
-    } finally {
-      setState(() => _isProcessing = false);
-    }
-  }
-
+class WorldCamApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Image.network(bgImageUrl, fit: BoxFit.cover),
-          ),
-          if (_finalResult == null)
-            FutureBuilder<void>(
-              future: _initializeControllerFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.done) {
-                  return Positioned.fill(
-                    child: Opacity(opacity: 0.5, child: CameraPreview(_controller)),
-                  );
-                } else {
-                  return const Center(child: CircularProgressIndicator(color: Colors.white));
-                }
-              },
-            ),
-          if (_finalResult != null)
-            Positioned.fill(
-              child: Container(
-                color: Colors.black,
-                child: Image.file(_finalResult!, fit: BoxFit.contain),
-              ),
-            ),
-          Positioned(
-            top: 50, left: 20, right: 20,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 15),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30)),
-              child: TextField(
-                controller: _searchController,
-                decoration: const InputDecoration(
-                  hintText: "दुनिया की कोई भी लोकेशन खोजें...",
-                  border: InputBorder.none,
-                  suffixIcon: Icon(Icons.search),
-                ),
-                onSubmitted: updateBackground,
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 40, left: 0, right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                FloatingActionButton(
-                  onPressed: pickFromGallery,
-                  backgroundColor: Colors.blue,
-                  child: const Icon(Icons.photo_library, color: Colors.white),
-                ),
-                const SizedBox(width: 30),
-                _isProcessing
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : FloatingActionButton(
-                        onPressed: captureLivePhoto,
-                        backgroundColor: Colors.white,
-                        child: const Icon(Icons.camera_alt, color: Colors.black, size: 30),
-                      ),
-                if (_finalResult != null) const SizedBox(width: 30),
-                if (_finalResult != null)
-                  FloatingActionButton(
-                    onPressed: () => setState(() => _finalResult = null),
-                    backgroundColor: Colors.red,
-                    child: const Icon(Icons.refresh, color: Colors.white),
+      backgroundColor: Color(0xFF0B1426),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // टॉप हेडर और सर्च बार
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("WorldCam AI", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+                  Text("Professional Travel Blending Engine", style: TextStyle(color: Colors.blueGrey, fontSize: 12)),
+                  SizedBox(height: 15),
+                  TextField(
+                    decoration: InputDecoration(
+                      hintText: "Search or type any global landmark...",
+                      hintStyle: TextStyle(color: Colors.grey),
+                      prefixIcon: Icon(Icons.search, color: Colors.blue),
+                      filled: true,
+                      fillColor: Color(0xFF162238),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
                   ),
-              ],
+                ],
+              ),
             ),
-          )
-        ],
+            
+            // मुख्य लाइव व्यूपोर्ट (फिक्स पोजीशन के साथ)
+            Expanded(
+              child: Container(
+                margin: EdgeInsets.symmetric(horizontal: 16),
+                decoration: BorderRadius.circular(20),
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // ताजमहल बैकग्राउंड
+                    Positioned.fill(
+                      child: Image.network(
+                        'https://unsplash.com',
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    
+                    // यूजर की फोटो (नीचे कटने से बचाकर सीधे जमीन पर सेट)
+                    Positioned(
+                      bottom: MediaQuery.of(context).size.height * 0.12, // ऊपर उठाया ताकि नीचे न कटे
+                      child: Container(
+                        width: 180, // परफेक्ट स्केल साइज
+                        height: 250,
+                        child: Image.network(
+                          'https://studio.preview', // आपकी लाइव स्ट्रीम इमेज
+                          errorBuilder: (context, error, stackTrace) {
+                            return Icon(Icons.account_circle, size: 100, color: Colors.white24);
+                          },
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            
+            // बॉटम पैरामीटर्स पैनल
+            Container(
+              padding: EdgeInsets.all(16),
+              color: Color(0xFF0B1426),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Blending Engine Parameters", style: TextStyle(color: Colors.white, fontSize: 14)),
+                  TextButton.icon(
+                    onPressed: () {},
+                    icon: Icon(Icons.refresh, size: 16, color: Colors.grey),
+                    label: Text("Reset", style: TextStyle(color: Colors.grey, fontSize: 14)),
+                  ),
+                ],
+              ),
+            )
+          ],
+        ),
       ),
     );
   }
