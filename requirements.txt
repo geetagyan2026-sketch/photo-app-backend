@@ -3,3 +3,4 @@ uvicorn
 pillow
 rembg
 python-multipart
+opencv-python
