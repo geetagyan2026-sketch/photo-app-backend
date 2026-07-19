@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-void main() => runApp(MaterialApp(home: WorldCamApp()));
+void main() => runApp(MaterialApp(debugShowCheckedModeBanner: false, home: WorldCamApp()));
 
 class WorldCamApp extends StatelessWidget {
   @override
@@ -10,7 +10,7 @@ class WorldCamApp extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            // टॉप हेडर और सर्च बार
+            // सर्च और हेडर सेक्शन
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -18,7 +18,7 @@ class WorldCamApp extends StatelessWidget {
                 children: [
                   Text("WorldCam AI", style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
                   Text("Professional Travel Blending Engine", style: TextStyle(color: Colors.blueGrey, fontSize: 12)),
-                  SizedBox(height: 15),
+                  SizedBox(height: 12),
                   TextField(
                     decoration: InputDecoration(
                       hintText: "Search or type any global landmark...",
@@ -33,16 +33,15 @@ class WorldCamApp extends StatelessWidget {
               ),
             ),
             
-            // मुख्य लाइव व्यूपोर्ट (फिक्स पोजीशन के साथ)
+            // लाइव व्यूपोर्ट (Constraint Fix के साथ)
             Expanded(
               child: Container(
                 margin: EdgeInsets.symmetric(horizontal: 16),
                 decoration: BorderRadius.circular(20),
                 clipBehavior: Clip.antiAlias,
                 child: Stack(
-                  alignment: Alignment.center,
                   children: [
-                    // ताजमहल बैकग्राउंड
+                    // ताजमहल बैकग्राउंड इमेज
                     Positioned.fill(
                       child: Image.network(
                         'https://unsplash.com',
@@ -50,18 +49,20 @@ class WorldCamApp extends StatelessWidget {
                       ),
                     ),
                     
-                    // यूजर की फोटो (नीचे कटने से बचाकर सीधे जमीन पर सेट)
-                    Positioned(
-                      bottom: MediaQuery.of(context).size.height * 0.12, // ऊपर उठाया ताकि नीचे न कटे
-                      child: Container(
-                        width: 180, // परफेक्ट स्केल साइज
-                        height: 250,
-                        child: Image.network(
-                          'https://studio.preview', // आपकी लाइव स्ट्रीम इमेज
-                          errorBuilder: (context, error, stackTrace) {
-                            return Icon(Icons.account_circle, size: 100, color: Colors.white24);
-                          },
-                          fit: BoxFit.contain,
+                    // यूजर इमेज: बॉटम से ऊपर उठाया ताकि रास्ते पर बिल्कुल सही फिट हो
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: Padding(
+                        padding: EdgeInsets.bottom(MediaQuery.of(context).size.height * 0.18), 
+                        child: Container(
+                          width: 200, 
+                          height: 260,
+                          child: Image.network(
+                            'https://studio.preview',
+                            fit: BoxFit.contain,
+                            loadingBuilder: (context, child, progress) => progress == null ? child : CircularProgressIndicator(),
+                            errorBuilder: (context, error, stackTrace) => Icon(Icons.account_circle, size: 120, color: Colors.white30),
+                          ),
                         ),
                       ),
                     ),
@@ -70,19 +71,14 @@ class WorldCamApp extends StatelessWidget {
               ),
             ),
             
-            // बॉटम पैरामीटर्स पैनल
-            Container(
-              padding: EdgeInsets.all(16),
-              color: Color(0xFF0B1426),
+            // बॉटम बार
+            Padding(
+              padding: const EdgeInsets.all(16.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text("Blending Engine Parameters", style: TextStyle(color: Colors.white, fontSize: 14)),
-                  TextButton.icon(
-                    onPressed: () {},
-                    icon: Icon(Icons.refresh, size: 16, color: Colors.grey),
-                    label: Text("Reset", style: TextStyle(color: Colors.grey, fontSize: 14)),
-                  ),
+                  Text("Reset", style: TextStyle(color: Colors.grey, fontSize: 14)),
                 ],
               ),
             )
