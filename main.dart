@@ -33,10 +33,12 @@ class _WorldCamAppState extends State<WorldCamApp> {
       
       request.fields['location'] = _locationController.text;
       
-      // एरर से बचने के लिए 1 बाइट की वैलिड डमी फाइल लिस्ट [0] भेजी गई है
+      // कंपाइलर एरर से बचने के लिए एक साधारण खाली लिस्ट भेजी गई है
+      List<int> dummyBytes = [];
+      
       request.files.add(http.MultipartFile.fromBytes(
         'image',
-,
+        dummyBytes,
         filename: 'user_photo.jpg',
       ));
 
