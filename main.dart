@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-void main() => runApp(MaterialApp(
+void main() => runApp(const MaterialApp(
       debugShowCheckedModeBanner: false,
       home: WorldCamApp(),
     ));
 
 class WorldCamApp extends StatefulWidget {
+  const WorldCamApp({Key? key}) : super(key: key);
+
   @override
   _WorldCamAppState createState() => _WorldCamAppState();
 }
@@ -31,7 +33,7 @@ class _WorldCamAppState extends State<WorldCamApp> {
       
       request.fields['location'] = _locationController.text;
       
-      // डमी फाइल बाइट्स भेज रहे हैं ताकि बैकएंड एरर न दे
+      // एरर से बचने के लिए 1 बाइट की एक डमी फाइल अटैच कर दी गई है
       request.files.add(http.MultipartFile.fromBytes(
         'image',
 ,
@@ -45,7 +47,7 @@ class _WorldCamAppState extends State<WorldCamApp> {
         });
       }
     } catch (e) {
-      print("Error: $e");
+      debugPrint("Error: $e");
     } finally {
       setState(() {
         _isLoading = false;
