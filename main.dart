@@ -33,7 +33,7 @@ class _WorldCamAppState extends State<WorldCamApp> {
       
       request.fields['location'] = _locationController.text;
       
-      // एरर से बचने के लिए 1 बाइट की एक डमी फाइल अटैच कर दी गई है
+      // एरर से बचने के लिए 1 बाइट की वैलिड डमी फाइल लिस्ट [0] भेजी गई है
       request.files.add(http.MultipartFile.fromBytes(
         'image',
 ,
